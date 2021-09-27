@@ -6,8 +6,19 @@ const urlDatabase = {
   "9sm5xK": "http://www.google.com"
 };
 
+function generateRandomString() {
+  const randomString = Math.random().toString(36).substr(2, 6)
+  console.log(randomString)
+}
+generateRandomString()
+
 const bodyParser = require("body-parser");
 app.use(bodyParser.urlencoded({extended: true}));
+
+app.post("/urls", (req, res) => {
+  console.log(req.body);  // Log the POST request body to the console
+  res.send(console.log('OK'));         // Respond with 'Ok' (we will replace this)
+});
 
 app.set("view engine", "ejs")
 

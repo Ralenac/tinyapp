@@ -48,6 +48,13 @@ app.get("/urls/:shortURL", (req, res) => {
   res.render("urls_show", templateVars);
 });
 
+//DELETE
+
+app.post("/urls/:shortURL/delete", (req, res) => {
+  const urlDeleted = req.params.shortURL;
+  delete urlDatabase[urlDeleted];
+  res.redirect("/urls");
+});
 
 app.get("/", (req, res) => {
   res.send("Hello!");

@@ -2,22 +2,31 @@ const express = require("express");
 const app = express();
 const PORT = 8080;
 const cookieParser = require('cookie-parser');
+// const cookieSession = require("cookie-session");
 const bodyParser = require("body-parser");
+app.use(express.json());
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(cookieParser());
+// app.use(cookieSession({}));
 app.set("view engine", "ejs");
+const saltRound = 10;
+const bcrypt = require('bcryptjs');
+const password1 = "purple-monkey-dinosaur"; // found in the req.params object
+const password2 = "dishwasher-funk"; // found in the req.params object
+const hashedPassword1 = bcrypt.hashSync(password1, saltRound);
+const hashedPassword2 = bcrypt.hashSync(password2, saltRound);
 
 
 const users = { 
   "uaJ48lW": {
     id: "uaJ48lW", 
     email: "user@example.com", 
-    password: "purple-monkey-dinosaur"
+    password: hashedPassword1
   },
  "bsJ75lG": {
     id: "bsJ75lG", 
     email: "user2@example.com", 
-    password: "dishwasher-funk"
+    password: hashedPassword2
   }
 };
 
@@ -31,7 +40,6 @@ const urlDatabase = {
     userID: "aJ48lW"
   }
 };
-
 
 
 //CREATE
@@ -141,10 +149,11 @@ app.post("/urls/:shortURL/delete", (req, res) => {
 
 const createUser = function (email, password, users) {
   const userId = generateRandomString();
+  const hashedPassword = bcrypt.hashSync(password, saltRound);
    users[userId] = {
     id: userId,
     email,
-    password,
+    hashedPassword
   };
 
   return userId;
@@ -165,7 +174,7 @@ const authenticateUser = function (email, password, users) {
   
   const userFound = findUserByEmail(email, users);
 
-  if (userFound && userFound.password === password) { //password match = log in
+  if (userFound && bcrypt.compareSync(password, userFound.password)){  //password match = log in
     return userFound;
   }
 

@@ -9,22 +9,30 @@ app.set("view engine", "ejs");
 
 
 const users = { 
-  "userRandomID": {
-    id: "userRandomID", 
+  "uaJ48lW": {
+    id: "uaJ48lW", 
     email: "user@example.com", 
     password: "purple-monkey-dinosaur"
   },
- "user2RandomID": {
-    id: "user2RandomID", 
+ "bsJ75lG": {
+    id: "bsJ75lG", 
     email: "user2@example.com", 
     password: "dishwasher-funk"
   }
 };
 
-const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
+const urlDatabase = { 
+  b2xVn2: {
+    longURL: "http://www.lighthouselabs.ca",
+    userID: "aJ48lW"
+  },
+  s9sm5xK: {
+    longURL: "http://www.google.com",
+    userID: "aJ48lW"
+  }
 };
+
+
 
 //CREATE
 
@@ -34,24 +42,38 @@ function generateRandomString() {
 };
 
 app.post("/urls", (req, res) => {
-  // console.log(req.body); 
   const shortUrl = generateRandomString(); 
-  urlDatabase[shortUrl] = req.body.longURL;
+  // console.log(urlDatabase[shortUrl]); 
+  urlDatabase[shortUrl] = {longURL: req.body.longURL, userID: req.cookies['user_id']};
   res.redirect("/urls");  //Redirect Short URLs   
-});
+}); 
 
 //Redirect long URLs 
 app.get("/u/:shortURL", (req, res) => {
-  const longURL = urlDatabase[req.params.shortURL];
+  if(!urlDatabase[req.params.shortURL]) {
+    res.status(400).send("ShortURL doesn't exist");
+    return;
+  }
+  const shortURL = req.params.shortURL;
+  const longURL = urlDatabase[shortURL].longURL; 
+  // console.log(longURL) -> redirect from shortUrl to web page (longURL) - works 
   res.redirect(longURL);
+  
 });
 
-
 app.get ("/urls", (req, res) => {
+  const user = urlsForUser (req.cookies['user_id'])
+  if (!req.cookies['user_id']) {
+    res.redirect("/login")
+  } 
   const templateVars = {
-    urls: urlDatabase, // need to be object
+    urls: user, // need to be object
     user: users[req.cookies['user_id']] 
   };
+  // console.log(req.cookies['user_id'])
+
+  
+  // console.log(urlDatabase)
   res.render("urls_index", templateVars);
 });
 
@@ -62,18 +84,23 @@ app.get("/urls/new", (req, res) => {
   if (templateVars.user) {
     res.render("urls_new", templateVars);
   } else {
-    res.redirect("/login")
+    res.redirect("/login");
   }
   
 });
 
-app.get("/urls/:shortURL", (req, res) => {
+app.get("/urls/:shortURL", (req, res) => { //*changed
+  if (urlDatabase[req.params.shortURL].userID !== req.cookies['user_id']) {
+    res.status(403).send("You don't have permission to access this URL");
+    return;
+  }
   const templateVars = { 
     shortURL: req.params.shortURL,
-    longURL: urlDatabase[req.params.shortURL],
+    longURL: urlDatabase[req.params.shortURL].longURL,//*changed
     user: users[req.cookies['user_id']] 
   };
   res.render("urls_show", templateVars);
+
 });
 
 //UPDATE 
@@ -81,22 +108,32 @@ app.get("/urls/:shortURL", (req, res) => {
 app.post("/urls/:shortURL", (req, res) => {
   const shortUrlId = req.params.shortURL;
   const urlConted = req.body.urlConted;
-  urlDatabase[shortUrlId] = urlConted;
+  urlDatabase[shortUrlId].longURL = urlConted;
   res.redirect("/urls")
 });
 
 app.post("/urls/:shortURL/update", (req, res) => {
   const shortURL = req.params.shortURL;
+  if (urlDatabase[req.params.shortURL].userID !== req.cookies['user_id']) {
+    res.status(403).send("You don't have permission to access this URL");
+    return;
+  }
   const longURL = req.body.longURL;
-  urlDatabase[shortURL] = longURL;
+  // console.log(longURL) -> for submit new longURL
+  urlDatabase[shortURL].longURL = longURL;
   res.redirect("/urls");
 });
+
 
 //DELETE
 
 app.post("/urls/:shortURL/delete", (req, res) => {
-  const urlDeleted = req.params.shortURL;
-  delete urlDatabase[urlDeleted];
+  const shortURL = req.params.shortURL;
+  if (urlDatabase[req.params.shortURL].userID !== req.cookies['user_id']) {
+    res.status(403).send("You don't have permission to access this URL");
+    return;
+  }
+  delete urlDatabase[shortURL];
   res.redirect("/urls");
 });
 
@@ -134,6 +171,24 @@ const authenticateUser = function (email, password, users) {
 
   return false;
 };
+
+
+const urlsForUser = function (ID) {
+  let userUrls = {};
+  for (let key in urlDatabase) { 
+    // console.log(urlDatabase[key].userID);
+    if(urlDatabase[key].userID === ID) {
+      userUrls[key] = urlDatabase[key]
+      
+    }
+  } return userUrls
+  // return URLs 
+  // when the userID = id of logedinpersond
+}
+
+// console.log(urlsForUser("aJ48lW"))
+
+
 
 //THE LOGIN ROUTE
 app.post("/login", (req, res) => {

@@ -59,7 +59,12 @@ app.get("/urls/new", (req, res) => {
   const templateVars = {
     user: users[req.cookies['user_id']] 
   }
-  res.render("urls_new", templateVars);
+  if (templateVars.user) {
+    res.render("urls_new", templateVars);
+  } else {
+    res.redirect("/login")
+  }
+  
 });
 
 app.get("/urls/:shortURL", (req, res) => {
@@ -181,7 +186,6 @@ app.post("/register", (req, res) => {
 
   res.redirect("/urls");
 });
-
 
 //THE LOGOUT ROUTE
 app.post("/logout", (req, res) => {

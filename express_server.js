@@ -1,7 +1,7 @@
 const express = require("express");
 const app = express();
 const PORT = 8080;
-const {findUserByEmail} = require("./helpers.js");
+const { findUserByEmail, generateRandomString, urlsForUser, createUser, authenticateUser, setUpUsers, urlDatabase } = require('./helpers');
 
 const cookieParser = require("cookie-parser");
 const cookieSession = require("cookie-session");
@@ -15,40 +15,13 @@ app.use(cookieSession({
 }));
 
 app.set("view engine", "ejs");
-const saltRound = 10;
-const bcrypt = require('bcryptjs');
-const password1 = "purple-monkey-dinosaur"; // found in the req.params object
-const password2 = "dishwasher-funk"; // found in the req.params object
-const hashedPassword1 = bcrypt.hashSync(password1, saltRound);
-const hashedPassword2 = bcrypt.hashSync(password2, saltRound);
 
 
-const users = {
-  "aJ48lW": {
-    id: "aJ48lW",
-    email: "user@example.com",
-    password: hashedPassword1
-  },
-  "bsJ75l": {
-    id: "bsJ75l",
-    email: "user2@example.com",
-    password: hashedPassword2
-  }
-};
-
-const urlDatabase = {
-  b2xVn2: {
-    longURL: "http://www.lighthouselabs.ca",
-    userID: "aJ48lW"
-  },
-  s9sm5xK: {
-    longURL: "http://www.google.com",
-    userID: "aJ48lW"
-  }
-};
+// function that calls users object database (users information including id, email, password)
+const users = setUpUsers();
 
 
-
+// Redirects to url main page if the user is logged in otherwise redirects to login.
 app.get("/", (req, res) => {
   if (users[req.session.user_id]) {
     res.redirect("/urls");
@@ -56,6 +29,7 @@ app.get("/", (req, res) => {
   res.redirect("/login");
 });
 
+// Renders the user's shortURL / longURL if the user is logged in otherwise sends 403 message.
 app.get("/urls", (req, res) => {
   const user = urlsForUser(req.session.user_id);
   if (!req.session.user_id) {
@@ -70,6 +44,7 @@ app.get("/urls", (req, res) => {
   res.render("urls_index", templateVars);
 });
 
+// Renders the user's new shortURL if the user is logged in otherwise redirects to login.
 app.get("/urls/new", (req, res) => {
   const templateVars = {
     user: users[req.session.user_id]
@@ -81,6 +56,7 @@ app.get("/urls/new", (req, res) => {
   }
 });
 
+// Renders the user's shortURL if the user is logged in otherwise sends 403/400 message.
 app.get("/urls/:shortURL", (req, res) => {
   if (!users[req.session.user_id]) {
     res.status(403).send("You don't have permission to access this URL");
@@ -100,9 +76,9 @@ app.get("/urls/:shortURL", (req, res) => {
     user: users[req.session.user_id]
   };
   res.render("urls_show", templateVars);
-
 });
 
+// Sends a 400 message if the shortURL doesn't exist otherwise redirect to the website (longURL)
 app.get("/u/:shortURL", (req, res) => {
   if (!urlDatabase[req.params.shortURL]) {
     res.status(400).send("ShortURL doesn't exist");
@@ -112,17 +88,9 @@ app.get("/u/:shortURL", (req, res) => {
   const longURL = urlDatabase[shortURL].longURL;
   
   res.redirect(longURL);
-  
 });
 
-
-//CREATE 
-
-const generateRandomString = function() {
-  const randomString = Math.random().toString(36).substr(2, 6);
-  return randomString;
-};
-
+// Adds new url to database if the user is logged in otherwise sends 403 message.
 app.post("/urls", (req, res) => {
   if (!users[req.session.user_id]) {
     res.status(403).send("You don't have permission to access this URL");
@@ -148,6 +116,7 @@ app.post("/urls/:shortURL", (req, res) => {
   res.redirect("/urls");
 });
 
+// Allows users to edit url if the user is logged in otherwise sends 403 message.
 app.post("/urls/:shortURL/update", (req, res) => {
   const shortURL = req.params.shortURL;
   if (urlDatabase[req.params.shortURL].userID !== req.session.user_id) {
@@ -160,9 +129,7 @@ app.post("/urls/:shortURL/update", (req, res) => {
   res.redirect("/urls");
 });
 
-
-// THE DELETE ROUTE
-
+// Allows user to delete urls if the user is logged in otherwise sends 403 message.
 app.post("/urls/:shortURL/delete", (req, res) => {
   const shortURL = req.params.shortURL;
   if (urlDatabase[req.params.shortURL].userID !== req.session.user_id) {
@@ -173,40 +140,7 @@ app.post("/urls/:shortURL/delete", (req, res) => {
   res.redirect("/urls");
 });
 
-// FUNCTION HELPERS
-
-const createUser = function(email, password, users) {
-  const userId = generateRandomString();
-  const hashedPassword = bcrypt.hashSync(password, saltRound);
-  users[userId] = {
-    id: userId,
-    email,
-    hashedPassword
-  };
-  return userId;
-};
-
-const authenticateUser = function(email, password, users) {
-  const userFound = findUserByEmail(email, users);
-  if (userFound && bcrypt.compareSync(password, userFound["password"])) {
-    return userFound;
-  }
-  return false;
-};
-
-const urlsForUser = function(ID) {
-  let userUrls = {};
-  for (let key in urlDatabase) {
-   
-    if (urlDatabase[key].userID === ID) {
-      userUrls[key] = urlDatabase[key];
-    }
-  } return userUrls;
-};
-
-
-// THE LOGIN ROUTE
-
+// THE LOGIN ROUTE - Allows users to login if the email is correct
 app.post("/login", (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
@@ -220,9 +154,9 @@ app.post("/login", (req, res) => {
   } else {
     res.status(403).send("You don't have permission to access / on this server");
   }
-  
 });
 
+// Renders the login page
 app.get("/login", (req, res) => {
   const templateVars = {
     user: users[req.session.user_id]
@@ -234,8 +168,7 @@ app.get("/login", (req, res) => {
   res.render("urls_login", templateVars);
 });
 
-// THE REGISTER ROUTE
-
+// THE REGISTER ROUTE - Renders the registeration page
 app.get("/register", (req, res) => {
   const templateVars = {
     user: users[req.session.user_id]
@@ -244,9 +177,10 @@ app.get("/register", (req, res) => {
     res.redirect("/urls");
     return;
   }
-    res.render("urls_register", templateVars);
+  res.render("urls_register", templateVars);
 });
 
+// Allows new users to register
 app.post("/register", (req, res) => {
   const email = req.body.email;
   const password = req.body.password;
@@ -259,18 +193,16 @@ app.post("/register", (req, res) => {
     res.status(400).send("User already exists!");
     return;
   }
-  
   const userId = createUser(email, password, users);
   req.session.user_id = userId;
-
+  
   res.redirect("/urls");
 });
 
-// THE LOGOUT ROUTE
-
+// THE LOGOUT ROUTE - Allows new users to logout
 app.post("/logout", (req, res) => {
   req.session = null;
-  res.redirect("/urls");
+  res.redirect("/login");
 });
 
 app.listen(PORT, () => {
